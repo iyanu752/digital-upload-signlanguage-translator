@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-  <!-- Hi, so i added comments all over the code to help you understand what is going on, especially in the javascript and python aspect of things
-   you might need to remove all the comments when you are done reading them so that your supervisor does not see them, but do make sure you understand whats going on, hopefully hell not ask you what any part of the code does, alright, get into it -->
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>American Sign Language  to Text Translator</title>
+    <title>American Sign Language to Text Translator</title>
     <style>
         :root {
             /* Light mode colors */
@@ -34,6 +32,7 @@
             --button-text: #ffffff;
             --status-online: #28a745;
             --status-offline: #dc3545;
+            --danger-color: #ff4444;
         }
 
         [data-theme="dark"] {
@@ -63,6 +62,7 @@
             --button-text: #ffffff;
             --status-online: #4ecdc4;
             --status-offline: #ff6b6b;
+            --danger-color: #ff6b6b;
         }
 
         * {
@@ -80,7 +80,6 @@
             position: relative;
             overflow-x: hidden;
         }
-
 
         .bg-animation {
             position: fixed;
@@ -307,6 +306,60 @@
             font-size: 0.95rem;
         }
 
+        .video-preview-section {
+            display: none;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .video-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .video-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .video-preview-container {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .video-preview {
+            width: 100%;
+            display: block;
+            max-height: 400px;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-danger:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
         .btn {
             padding: 18px 40px;
             border: none;
@@ -525,6 +578,12 @@
                 flex-direction: column;
                 align-items: center;
             }
+
+            .video-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
         }
     </style>
 </head>
@@ -539,7 +598,6 @@
                     American Sign Language recognition and translation
                 </p>
             </div>
-            <!-- YOUR LIGHT AND DARK MODE TOGGLE -->
             <div class="theme-toggle" id="theme-toggle">
                 <div class="theme-toggle-bg"></div>
                 <div class="theme-icon">☀️</div>
@@ -559,6 +617,28 @@
                 <span>📁</span>
                 <span id="file-details"></span>
                 <span>✅</span>
+            </div>
+
+            <div id="video-preview-section" class="video-preview-section">
+                <div class="video-info">
+                    <div class="video-details">
+                        <span>🎬</span>
+                        <span id="video-name"></span>
+                        <span>•</span>
+                        <span id="video-size"></span>
+                        <span>•</span>
+                        <span id="video-duration"></span>
+                    </div>
+                    <button id="remove-video-btn" class="btn-danger">
+                        🗑️ Remove
+                    </button>
+                </div>
+                
+                <div class="video-preview-container">
+                    <video id="video-preview" class="video-preview" controls>
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
             </div>
 
             <div style="text-align: center;">
@@ -585,16 +665,14 @@
                 </button>
             </div>
         </div>
-
     </div>
 
     <script>
-        // Your theme management here
+
         const themeToggle = document.getElementById('theme-toggle');
         const bgAnimation = document.getElementById('bg-animation');
         const body = document.body;
 
-        //Local storage saves your theme , so you when you open it , it should be the same theme you left it as
         const savedTheme = localStorage.getItem('theme') || 'light';
         setTheme(savedTheme);
 
@@ -612,7 +690,7 @@
 
         themeToggle.addEventListener('click', toggleTheme);
 
-        // you are assigning a variable to the ids of the html elements 
+
         const videoInput = document.getElementById('video-input');
         const uploadBtn = document.getElementById('upload-btn');
         const uploadZone = document.getElementById('upload-zone');
@@ -622,8 +700,14 @@
         const testBtn = document.getElementById('test-btn');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
+        const videoPreviewSection = document.getElementById('video-preview-section');
+        const videoPreview = document.getElementById('video-preview');
+        const videoName = document.getElementById('video-name');
+        const videoSize = document.getElementById('video-size');
+        const videoDuration = document.getElementById('video-duration');
+        const removeVideoBtn = document.getElementById('remove-video-btn');
 
-        // this handles your drag and drop functionality
+    
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadZone.classList.add('dragover');
@@ -643,7 +727,7 @@
             }
         });
 
-        // your file input handling
+     
         videoInput.addEventListener('change', handleFileSelect);
 
         function handleFileSelect() {
@@ -651,18 +735,72 @@
                 const file = videoInput.files[0];
                 const fileSize = (file.size / (1024 * 1024)).toFixed(2);
                 
+              
                 uploadZone.classList.add('file-selected');
                 fileDetails.textContent = `${file.name} (${fileSize} MB)`;
                 fileInfo.style.display = 'flex';
                 uploadBtn.disabled = false;
                 
-                // Update upload zone
+               
                 uploadZone.querySelector('.upload-text').textContent = 'Video selected successfully!';
                 uploadZone.querySelector('.upload-subtext').textContent = 'Ready to translate';
+                
+               
+                showVideoPreview(file);
             }
         }
 
-        // this function checks your python server (backend code) if your html is connected to it, if its connected, you should see a green dot that says status okay
+        function showVideoPreview(file) {
+            const videoURL = URL.createObjectURL(file);
+            
+         
+            videoPreview.src = videoURL;
+            
+         
+            videoName.textContent = file.name;
+            videoSize.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+            
+           
+            videoPreview.onloadedmetadata = function() {
+                const duration = videoPreview.duration;
+                const minutes = Math.floor(duration / 60);
+                const seconds = Math.floor(duration % 60);
+                videoDuration.textContent = `${minutes}m ${seconds}s`;
+                
+               
+                videoPreviewSection.style.display = 'block';
+            };
+        }
+
+      
+        removeVideoBtn.addEventListener('click', () => {
+            resetVideoUpload();
+        });
+
+        function resetVideoUpload() {
+           
+            videoInput.value = '';
+            
+            
+            uploadZone.classList.remove('file-selected');
+            uploadZone.querySelector('.upload-text').textContent = 'Drop your video here or click to browse';
+            uploadZone.querySelector('.upload-subtext').textContent = 'Supports MP4, MOV, AVI • Max 50MB';
+            
+            
+            fileInfo.style.display = 'none';
+            videoPreviewSection.style.display = 'none';
+            
+       
+            videoPreview.src = '';
+            videoName.textContent = '';
+            videoSize.textContent = '';
+            videoDuration.textContent = '';
+            
+            
+            uploadBtn.disabled = true;
+        }
+
+        
         function checkServerStatus() {
             statusText.textContent = 'Checking server...';
             statusDot.className = 'status-dot offline';
@@ -681,7 +819,7 @@
 
         testBtn.addEventListener('click', checkServerStatus);
 
-        //  Video upload
+       
         uploadBtn.addEventListener('click', () => {
             if (!videoInput.files.length) {
                 showResult('Please select a video file first.', 'error');
@@ -689,7 +827,7 @@
             }
 
             const file = videoInput.files[0];
-            const maxSize = 50 * 1024 * 1024; // ive set the max upload size to 50MB
+            const maxSize = 50 * 1024 * 1024; // 50MB
             
             if (file.size > maxSize) {
                 showResult('File size too large. Please select a video under 50MB.', 'error');
@@ -710,7 +848,7 @@
 
             const formData = new FormData();
             formData.append('video', file);
-            //this is your endpoint that handles uploading the video upload and translation from sign to text
+            
             fetch('http://127.0.0.1:5000/upload', {
                 method: 'POST',
                 body: formData
@@ -747,7 +885,7 @@
             result.className = `result-content result-${type}`;
         }
 
-        // Initialize
+       
         window.addEventListener('load', () => {
             setTimeout(checkServerStatus, 1000);
         });
